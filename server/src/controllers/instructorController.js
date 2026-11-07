@@ -102,7 +102,16 @@ export async function getDirectory(req, res, next) {
 // GET /api/instructors/search
 export async function searchInstructors(req, res, next) {
   try {
-    const { error, value } = searchSchema.validate(req.query, JOI_OPTIONS);
+    // Only plain strings in whitelisted keys are ever considered. Anything else
+    // (unknown keys like username/$where, or objects such as {$ne:...} that the
+    // sanitizer has already emptied) is silently ignored, so an injection
+    // attempt degrades to the harmless public directory instead of an error.
+    const input = {};
+    for (const key of ['name', 'department', 'role']) {
+      if (typeof req.query[key] === 'string') input[key] = req.query[key];
+    }
+
+    const { error, value } = searchSchema.validate(input, JOI_OPTIONS);
     if (error) {
       return res.status(400).json({ message: 'Invalid search parameters' });
     }
